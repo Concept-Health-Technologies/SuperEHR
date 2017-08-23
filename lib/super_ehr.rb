@@ -57,11 +57,21 @@ module SuperEHR
       url = get_request_url(endpoint)
 
       if request_type == "GET"
+        Delayed::Worker.logger.debug "Get request made"
+        Delayed::Worker.logger.debug "Query"
+        Delayed::Worker.logger.debug params.inspect
+        Delayed::Worker.logger.debug "Headers"
+        Delayed::Worker.logger.debug headers.inspect
         response = HTTParty.get(url, :query => params, :headers => headers)
       elsif request_type == "POST"
         if headers.key?("Content-Type") and headers["Content-Type"] == "application/json"
           params = JSON.generate(params)
         end
+        Delayed::Worker.logger.debug "Post request made"
+        Delayed::Worker.logger.debug "Query"
+        Delayed::Worker.logger.debug params.inspect
+        Delayed::Worker.logger.debug "Headers"
+        Delayed::Worker.logger.debug headers.inspect
         response = HTTParty.post(url, :body => params, :headers => headers)
       else
         puts "Request Type #{request_type} unsupported"
@@ -419,8 +429,456 @@ module SuperEHR
         end
         return result
       end
-
   end
+
+  class Doc24Seven < BaseEHR
+    attr_reader :access_token, :uri
+
+    ### API SPECIFIC HOUSEKEEPING ###
+
+    def initialize(args={})
+      params = {
+        :access_token => ''
+      }
+      params = params.merge(args)
+      if (params[:access_token] == '' || params[:access_token] == nil)
+        raise ArgumentError, "Access Token='#{params[:access_token]}' is blank or nil"
+      end
+      @access_token = params[:access_token]
+      @uri = URI.parse(params[:base_url])
+    end
+
+    def get_request_headers
+      return { 'X-Auth-Token' => "#{@access_token}"}
+    end
+
+    def get_request_url(endpoint)
+      return "#{@uri}/#{endpoint}"
+    end
+
+    def get_access_token
+      return @access_token
+    end
+
+
+    ### API CALLS ###
+
+    #uploads record data to endpoint
+    def upload_to_ehr(args)
+      session_id = args[:patient].identifier
+      patient_id = args[:patient].id
+      pdf_file_path = args[:pdf_file_path]
+      sound_file_path = args[:sound_file_path]
+      recording_meta_data = args[:recording_meta_data]
+      request = args[:request]
+
+      headers = get_request_headers
+      pdf_file = File.new(pdf_file_path)
+      sound_file = File.new(sound_file_path)
+
+      params = {
+          :recordingMetadata => recording_meta_data,
+          :audio => sound_file,
+          :patientId => patient_id,
+          :sessionId => session_id,
+          :pdf => pdf_file
+      }
+      if request == "put"
+        response = pdf_upload_request('put', params, headers)
+      else
+        response = pdf_upload_request('post', params, headers)
+      end
+      return response
+    end
+
+    private
+
+    def pdf_upload_request(request, params, headers, document_id="")
+      url = get_request_url("api/patients/" + params[:sessionId] + "/eko_upload")
+      if request == 'put'
+        response = HTTMultiParty.put(url, :query => params, :headers => headers)
+      else
+        response = HTTMultiParty.post(url, :query => params, :headers => headers)
+      end
+      return response
+    end
+  end
+
+  class LifeLettersAPI < BaseEHR
+    attr_reader :access_token, :uri
+
+    ### API SPECIFIC HOUSEKEEPING ###
+
+    def initialize(args={})
+      params = {
+        :access_token => ''
+      }
+      params = params.merge(args)
+      if (params[:access_token] == '' || params[:access_token] == nil)
+        raise ArgumentError, "Access Token='#{params[:access_token]}' is blank or nil"
+      end
+      @access_token = params[:access_token]
+      @uri = URI.parse(params[:base_url])
+    end
+
+    def get_request_headers
+      return { 'X-Auth-Token' => "#{@access_token}"}
+    end
+
+    def get_request_url(endpoint)
+      return "#{@uri}/#{endpoint}"
+    end
+
+    def get_access_token
+      return @access_token
+    end
+
+
+    ### API CALLS ###
+
+    #uploads record data to endpoint
+    def upload_to_ehr(args)
+      #ideally patient id would be patient.id and session id should patient.identifier. but here we are.
+      session_id = args[:patient].identifier
+      patient_id = args[:patient].identifier
+      pdf_file_path = args[:pdf_file_path]
+      sound_file_path = args[:sound_file_path]
+      recording_meta_data = args[:recording_meta_data]
+      request = args[:request]
+
+      headers = get_request_headers
+      pdf_file = File.new(pdf_file_path)
+      sound_file = File.new(sound_file_path)
+
+      params = {
+          :recordingMetadata => recording_meta_data.to_json,
+          :audio => sound_file,
+          :patientId => patient_id,
+          :sessionId => session_id,
+          :pdf => pdf_file
+      }
+      if request == "put"
+        response = pdf_upload_request('put', params, headers)
+      else
+        response = pdf_upload_request('post', params, headers)
+      end
+      return response
+    end
+
+    private
+
+    def pdf_upload_request(request, params, headers, document_id="")
+      url = get_request_url("readings/eko_upload")
+
+      if request == 'put'
+        response = HTTMultiParty.put(url, :query => params, :headers => headers)
+      else
+        response = HTTMultiParty.post(url, :query => params, :headers => headers)
+      end
+      return response
+    end
+  end
+
+  class EClinicalWorksSalesAPI < BaseEHR
+    attr_reader :access_token, :uri
+
+    ### API SPECIFIC HOUSEKEEPING ###
+
+    def initialize(args={})
+      params = {
+        :access_token => ''
+      }
+      params = params.merge(args)
+      if (params[:access_token] == '' || params[:access_token] == nil)
+        raise ArgumentError, "Access Token='#{params[:access_token]}' is blank or nil"
+      end
+      @access_token = params[:access_token]
+      @uri = URI.parse(params[:base_url])
+    end
+
+    def get_request_headers
+      return { 'X-Auth-Token' => "#{@access_token}"}
+    end
+
+    def get_request_url(endpoint)
+      return "#{@uri}/#{endpoint}"
+    end
+
+    def get_access_token
+      return @access_token
+    end
+
+
+    ### API CALLS ###
+
+    #uploads record data to endpoint
+    def upload_to_ehr(args)
+      session_id = args[:patient].identifier
+      patient_id = args[:patient].identifier
+      # ideally would be below, but expectations are currently identifier not id
+      #patient_id = args[:patient].id
+      pdf_file_path = args[:pdf_file_path]
+      sound_file_path = args[:sound_file_path]
+      recording_meta_data = args[:recording_meta_data]
+      request = args[:request]
+
+      headers = get_request_headers
+      pdf_file = File.new(pdf_file_path)
+      sound_file = File.new(sound_file_path)
+
+      params = {
+          :recordingMetadata => recording_meta_data,
+          :audio => sound_file,
+          :sessionId => session_id,
+          :patientId => patient_id,
+          :pdf => pdf_file
+      }
+      if request == "put"
+        # post on purpose
+        response = pdf_upload_request('post', params, headers)
+      else
+        response = pdf_upload_request('post', params, headers)
+      end
+      return response
+    end
+
+    private
+
+    def pdf_upload_request(request, params, headers, document_id="")
+      url = get_request_url("mobilesales/eko/patients/" + params[:sessionId] + "/eko_upload")
+
+      if request == 'put'
+        response = HTTMultiParty.put(url, :query => params, :headers => headers)
+      else
+        response = HTTMultiParty.post(url, :query => params, :headers => headers)
+      end
+      return response
+    end
+  end
+
+  class EClinicalWorksAPI < BaseEHR
+    attr_reader :access_token, :uri
+
+    ### API SPECIFIC HOUSEKEEPING ###
+
+    def initialize(args={})
+      params = {
+        :access_token => ''
+      }
+      params = params.merge(args)
+      if (params[:access_token] == '' || params[:access_token] == nil)
+        raise ArgumentError, "Access Token='#{params[:access_token]}' is blank or nil"
+      end
+      @access_token = params[:access_token]
+      @uri = URI.parse(params[:base_url])
+    end
+
+    def get_request_headers
+      return { 'X-Auth-Token' => "#{@access_token}"}
+    end
+
+    def get_request_url(endpoint)
+      return "#{@uri}/#{endpoint}"
+    end
+
+    def get_access_token
+      return @access_token
+    end
+
+
+    ### API CALLS ###
+
+    #uploads record data to endpoint
+    def upload_to_ehr(args)
+      session_id = args[:patient].identifier
+      patient_id = args[:patient].identifier
+      # ideally would be allow; requirements otherwise for now
+      #patient_id = args[:patient].id
+      pdf_file_path = args[:pdf_file_path]
+      sound_file_path = args[:sound_file_path]
+      recording_meta_data = args[:recording_meta_data]
+      request = args[:request]
+
+      headers = get_request_headers
+      pdf_file = File.new(pdf_file_path)
+      sound_file = File.new(sound_file_path)
+
+      params = {
+          :recordingMetadata => recording_meta_data,
+          :audio => sound_file,
+          :sessionId => session_id,
+          :patientId => patient_id,
+          :pdf => pdf_file
+      }
+      if request == "put"
+        # post on purpose
+        response = pdf_upload_request('post', params, headers)
+      else
+        response = pdf_upload_request('post', params, headers)
+      end
+      return response
+    end
+
+    private
+
+    def pdf_upload_request(request, params, headers, document_id="")
+      url = get_request_url("mobile/eko/patients/" + params[:sessionId] + "/eko_upload")
+
+      if request == 'put'
+        response = HTTMultiParty.put(url, :query => params, :headers => headers)
+      else
+        response = HTTMultiParty.post(url, :query => params, :headers => headers)
+      end
+      return response
+    end
+  end
+
+  class CallNineAPI < BaseEHR
+    attr_reader :access_token, :uri
+
+    ### API SPECIFIC HOUSEKEEPING ###
+
+    def initialize(args={})
+      params = {
+        :access_token => ''
+      }
+      params = params.merge(args)
+      if (params[:access_token] == '' || params[:access_token] == nil)
+        raise ArgumentError, "Access Token='#{params[:access_token]}' is blank or nil"
+      end
+      @access_token = params[:access_token]
+      @uri = URI.parse(params[:base_url])
+    end
+
+    def get_request_headers
+      return { 'X-Auth-Token' => "#{@access_token}"}
+    end
+
+    def get_request_url(endpoint)
+      return "#{@uri}/#{endpoint}"
+    end
+
+    def get_access_token
+      return @access_token
+    end
+
+
+    ### API CALLS ###
+
+    #uploads record data to endpoint
+    def upload_to_ehr(args)
+      session_id = args[:patient].identifier
+      patient_id = args[:patient].id
+      pdf_file_path = args[:pdf_file_path]
+      sound_file_path = args[:sound_file_path]
+      recording_meta_data = args[:recording_meta_data]
+      request = args[:request]
+
+      headers = get_request_headers
+      pdf_file = File.new(pdf_file_path)
+      sound_file = File.new(sound_file_path)
+
+      params = {
+          :recordingMetadata => recording_meta_data,
+          :audio => sound_file,
+          :sessionId => session_id,
+          :patientId => patient_id,
+          :pdf => pdf_file
+      }
+      if request == "put"
+        response = pdf_upload_request('put', params, headers)
+      else
+        response = pdf_upload_request('post', params, headers)
+      end
+      return response
+    end
+
+    private
+
+    def pdf_upload_request(request, params, headers, document_id="")
+      url = get_request_url("api/sessions/" + params[:sessionId] + "/eko")
+      if request == 'put'
+        response = HTTMultiParty.put(url, :query => params, :headers => headers)
+      else
+        response = HTTMultiParty.post(url, :query => params, :headers => headers)
+      end
+      return response
+    end
+  end
+
+  class MiExpressCareAPI < BaseEHR
+    attr_reader :access_token, :uri
+
+    ### API SPECIFIC HOUSEKEEPING ###
+
+    def initialize(args={})
+      params = {
+        :access_token => ''
+      }
+      params = params.merge(args)
+      if (params[:access_token] == '' || params[:access_token] == nil)
+        raise ArgumentError, "Access Token='#{params[:access_token]}' is blank or nil"
+      end
+      @access_token = params[:access_token]
+      @uri = URI.parse(params[:base_url])
+    end
+
+    def get_request_headers
+      return { 'X-Auth-Token' => "#{@access_token}"}
+    end
+
+    def get_request_url(endpoint)
+      return "#{@uri}/#{endpoint}"
+    end
+
+    def get_access_token
+      return @access_token
+    end
+
+
+    ### API CALLS ###
+
+    #uploads record data to endpoint
+    def upload_to_ehr(args)
+      session_id = args[:patient].identifier
+      patient_id = args[:patient].id
+      pdf_file_path = args[:pdf_file_path]
+      sound_file_path = args[:sound_file_path]
+      recording_meta_data = args[:recording_meta_data]
+      request = args[:request]
+
+      headers = get_request_headers
+      pdf_file = File.new(pdf_file_path)
+      sound_file = File.new(sound_file_path)
+
+      params = {
+          :recordingMetadata => recording_meta_data,
+          :audio => sound_file,
+          :sessionId => session_id,
+          :patientId => patient_id,
+          :pdf => pdf_file
+      }
+      if request == "put"
+        response = pdf_upload_request('put', params, headers)
+      else
+        response = pdf_upload_request('post', params, headers)
+      end
+      return response
+    end
+
+    private
+
+    def pdf_upload_request(request, params, headers, document_id="")
+      url = get_request_url("upload")
+      if request == 'put'
+        response = HTTMultiParty.put(url, :query => params, :headers => headers)
+      else
+        response = HTTMultiParty.post(url, :query => params, :headers => headers)
+      end
+      return response
+    end
+  end
+
 
   class DrChronoAPI < BaseEHR
     attr_reader :access_token, :refresh_token
@@ -563,25 +1021,41 @@ module SuperEHR
     def pdf_upload_request(request, params, headers, document_id="")
       url = get_request_url("api/documents")
       if request == 'post'
+        Delayed::Worker.logger.info "I, [#{Time.zone.now.iso8601} #1] CHRONO_REQUEST -- : #{Time.zone.now.iso8601} [Worker(delayed_job host:ip-00-0-00-000 pid:1)] Make PDF POST Request for endpoint #{url} and params #{params.inspect} and headers #{headers.inspect}"
         response = HTTMultiParty.post(url, :query => params, :headers => headers)
         return response["id"]
       else
         put_url = url + "/#{document_id}"
+        Delayed::Worker.logger.info "I, [#{Time.zone.now.iso8601} #1] CHRONO_REQUEST -- : #{Time.zone.now.iso8601} [Worker(delayed_job host:ip-00-0-00-000 pid:1)] Make PDF PUT Request for endpoint #{put_url} and params #{params.inspect} and headers #{headers.inspect}"
         response = HTTMultiParty.put(put_url, :query => params, :headers => headers)
         return response["id"]
       end
     end
 
+
     def chrono_request(endpoint, params={})
-      result = []
+      params["page_size"] = 250
+      return_hash = {
+        "results" => []
+      }
       while endpoint
+        Delayed::Worker.logger.info "I, [#{Time.zone.now.iso8601} #1] CHRONO_REQUEST -- : #{Time.zone.now.iso8601} [Worker(delayed_job host:ip-00-0-00-000 pid:1)] Make GET Request for endpoint #{endpoint} and params #{params.inspect} and headers #{get_request_headers}"
         data = make_request("GET", endpoint, params)
+        api_throttled = data["detail"] && data["detail"].include?("Request was throttled")
         if data["results"]
-          result = result | data["results"]
+          return_hash["results"] = return_hash["results"] | data["results"]
+          return_hash["status"] = {"success" => "Complete sync"}
+        elsif api_throttled
+          return_hash["status"] = {"error" => data["detail"]}
+          return_hash["error_at_request"] = {"endpoint" => endpoint, "params" => params}
+          endpoint = nil
         end
-        endpoint = data["next"]
-        if endpoint
-          endpoint = endpoint[20..-1]
+        
+        unless api_throttled
+          endpoint = data["next"]
+          if endpoint
+            endpoint = endpoint[20..-1]
+          end
         end
       end
       return result
@@ -596,6 +1070,7 @@ module SuperEHR
           "client_id" => @client_id,
           "client_secret" => @client_secret
         }
+        Delayed::Worker.logger.info "I, [#{Time.zone.now.iso8601} #1] CHRONO_REQUEST -- : #{Time.zone.now.iso8601} [Worker(delayed_job host:ip-00-0-00-000 pid:1)] Refresh Token When None Present"
         response = HTTParty.post(get_request_url("o/token/"),
                                  :body => post_args)
         @refresh_token = response["refresh_token"]
@@ -609,6 +1084,7 @@ module SuperEHR
           "client_id" => @client_id,
           "client_secret" => @client_secret
         }
+        Delayed::Worker.logger.info "I, [#{Time.zone.now.iso8601} #1] CHRONO_REQUEST -- : #{Time.zone.now.iso8601} [Worker(delayed_job host:ip-00-0-00-000 pid:1)] Refresh Token When Refresh Token Present"
         response = HTTParty.post(get_request_url("o/token/"),
                                  :body => post_args)
         @refresh_token = response["refresh_token"]
@@ -632,5 +1108,29 @@ module SuperEHR
 
   def self.drchrono_b(access_token, refresh_token, client_id, client_secret, redirect_uri)
     return DrChronoAPI.new({:access_token => access_token, :refresh_token => refresh_token, :client_id => client_id, :client_secret => client_secret, :redirect_uri => redirect_uri})
+  end
+
+  def self.mi_express_care(args)
+    return MiExpressCareAPI.new(args)
+  end
+
+  def self.call_nine(args)
+    return CallNineAPI.new(args)
+  end
+
+  def self.e_clinical_works(args)
+    return EClinicalWorksAPI.new(args)
+  end
+
+  def self.e_clinical_works_sales(args)
+    return EClinicalWorksSalesAPI.new(args)
+  end
+
+  def self.life_letters(args)
+    return LifeLettersAPI.new(args)
+  end
+
+  def self.doc_24_seven(args)
+    return Doc24Seven.new(args)
   end
 end
